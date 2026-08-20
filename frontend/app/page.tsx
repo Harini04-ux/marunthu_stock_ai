@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const API_URL =
+  "https://proteins-shape-vacuum-downloaded.trycloudflare.com";
+
 export default function Home() {
   const router = useRouter();
 
@@ -12,93 +15,254 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
     setError("");
 
-    const validLoginId = "PHC-TVL-001";
-    const validPassword = "admin123";
-
-    // ==============================
-    // VALIDATE EMPTY FIELDS
-    // ==============================
-
     if (!loginId.trim() || !password) {
-      setError("Please enter PHC Code and Password.");
+      setError(
+        "Please enter PHC Code / Username and Password."
+      );
       return;
     }
 
-    // ==============================
-    // START LOGIN
-    // ==============================
-
     setLoading(true);
 
-    // ==============================
-    // CHECK LOGIN DETAILS
-    // ==============================
+    try {
+      console.log("API URL:", API_URL);
+      console.log(
+        "LOGIN URL:",
+        `${API_URL}/login`
+      );
 
-    if (
-      loginId.trim() === validLoginId &&
-      password === validPassword
-    ) {
-      // ==============================
-      // SAVE SESSION DATA
-      // ==============================
+      const response = await fetch(
+        `${API_URL}/login`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+
+          body: JSON.stringify({
+            username: loginId.trim(),
+            password: password,
+          }),
+        }
+      );
+
+      // ==========================================
+      // READ RESPONSE AS TEXT FIRST
+      // ==========================================
+
+      const responseText = await response.text();
+
+      console.log(
+        "BACKEND STATUS:",
+        response.status
+      );
+
+      console.log(
+        "BACKEND RESPONSE:",
+        responseText
+      );
+
+      // ==========================================
+      // CONVERT JSON
+      // ==========================================
+
+      let data: any;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        console.error(
+          "Backend did not return JSON:",
+          responseText
+        );
+
+        setError(
+          "Backend returned an invalid response. Please check the FastAPI URL."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      console.log(
+        "LOGIN RESPONSE:",
+        data
+      );
+
+      // ==========================================
+      // BACKEND ERROR
+      // ==========================================
+
+      if (!response.ok) {
+        setError(
+          data?.detail ||
+            data?.message ||
+            "Login failed."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      // ==========================================
+      // SUCCESS CHECK
+      // ==========================================
+
+      if (!data?.success) {
+        setError(
+          data?.message ||
+            "Invalid username or password."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      // ==========================================
+      // GET TOKEN + USER
+      // ==========================================
+
+      const token =
+        data?.access_token;
+
+      const user =
+        data?.user;
+
+      if (!token) {
+        setError(
+          "Login successful, but access token was not received."
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      // ==========================================
+      // SAVE JWT TOKEN
+      // ==========================================
+
+      sessionStorage.setItem(
+        "access_token",
+        token
+      );
+
+      // ==========================================
+      // SAVE AUTHENTICATION
+      // ==========================================
 
       sessionStorage.setItem(
         "marunthu_authenticated",
         "true"
       );
 
+      // ==========================================
+      // SAVE ROLE
+      // ==========================================
+
       sessionStorage.setItem(
         "user_role",
-        "Pharmacist"
+        user?.role ||
+          "pharmacist"
       );
+
+      // ==========================================
+      // SAVE PHC CODE
+      // ==========================================
 
       sessionStorage.setItem(
         "phc_code",
-        validLoginId
+        user?.username ||
+          loginId.trim()
       );
 
-      // ==============================
-      // SAVE AUTHENTICATION COOKIE
-      // Proxy checks this cookie
-      // ==============================
+      sessionStorage.setItem(
+        "username",
+        user?.username ||
+          loginId.trim()
+      );
+
+      // ==========================================
+      // AUTH COOKIE
+      // ==========================================
 
       document.cookie =
         "marunthu_authenticated=true; path=/; max-age=86400; SameSite=Lax";
 
-      // ==============================
-      // SAVE USER ROLE COOKIE
-      // ==============================
+      // ==========================================
+      // ROLE COOKIE
+      // ==========================================
 
       document.cookie =
-        "user_role=Pharmacist; path=/; max-age=86400; SameSite=Lax";
+        `user_role=${encodeURIComponent(
+          user?.role ||
+            "pharmacist"
+        )}; path=/; max-age=86400; SameSite=Lax`;
 
-      // ==============================
-      // SAVE PHC CODE COOKIE
-      // ==============================
+      // ==========================================
+      // PHC COOKIE
+      // ==========================================
 
       document.cookie =
-        `phc_code=${validLoginId}; path=/; max-age=86400; SameSite=Lax`;
+        `phc_code=${encodeURIComponent(
+          user?.username ||
+            loginId.trim()
+        )}; path=/; max-age=86400; SameSite=Lax`;
 
-      // ==============================
-      // GO TO DASHBOARD
-      // ==============================
+      // ==========================================
+      // TOKEN COOKIE
+      // ==========================================
 
-      router.replace("/dashboard");
-    } else {
-      // ==============================
-      // INVALID LOGIN
-      // ==============================
+      document.cookie =
+        `access_token=${encodeURIComponent(
+          token
+        )}; path=/; max-age=86400; SameSite=Lax`;
 
-      setLoading(false);
+      // ==========================================
+      // LOGIN SUCCESS
+      // ==========================================
+
+      console.log(
+        "LOGIN SUCCESS"
+      );
+
+      console.log(
+        "Username:",
+        user?.username
+      );
+
+      console.log(
+        "Role:",
+        user?.role
+      );
+
+      // ==========================================
+      // DASHBOARD
+      // ==========================================
+
+      router.replace(
+        "/dashboard"
+      );
+
+    } catch (err) {
+      console.error(
+        "LOGIN ERROR:",
+        err
+      );
 
       setError(
-        "Invalid PHC Code or Password."
+        "Cannot connect to backend. Please make sure FastAPI and Cloudflare Tunnel are running."
       );
+
+      setLoading(false);
     }
   };
 
@@ -107,7 +271,7 @@ export default function Home() {
 
       <div className="w-full max-w-md">
 
-        {/* ================= HEADER ================= */}
+        {/* HEADER */}
 
         <div className="mb-8 text-center">
 
@@ -129,7 +293,7 @@ export default function Home() {
 
         </div>
 
-        {/* ================= LOGIN CARD ================= */}
+        {/* LOGIN CARD */}
 
         <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-xl">
 
@@ -138,7 +302,7 @@ export default function Home() {
           </h2>
 
           <p className="mb-6 mt-1 text-sm text-gray-500">
-            Login using your PHC code or registered phone number
+            Login using your PHC code or registered username
           </p>
 
           <form
@@ -146,28 +310,32 @@ export default function Home() {
             className="space-y-5"
           >
 
-            {/* ================= PHC CODE ================= */}
+            {/* USERNAME */}
 
             <div>
 
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                PHC Code / Phone Number
+                PHC Code / Username
               </label>
 
               <input
                 type="text"
                 value={loginId}
                 onChange={(e) => {
-                  setLoginId(e.target.value);
+                  setLoginId(
+                    e.target.value
+                  );
                   setError("");
                 }}
                 placeholder="Enter PHC code"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                autoComplete="username"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-gray-100"
               />
 
             </div>
 
-            {/* ================= PASSWORD ================= */}
+            {/* PASSWORD */}
 
             <div>
 
@@ -179,16 +347,20 @@ export default function Home() {
                 type="password"
                 value={password}
                 onChange={(e) => {
-                  setPassword(e.target.value);
+                  setPassword(
+                    e.target.value
+                  );
                   setError("");
                 }}
                 placeholder="Enter your password"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                autoComplete="current-password"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-gray-100"
               />
 
             </div>
 
-            {/* ================= ERROR ================= */}
+            {/* ERROR */}
 
             {error && (
               <div className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -196,19 +368,21 @@ export default function Home() {
               </div>
             )}
 
-            {/* ================= LOGIN BUTTON ================= */}
+            {/* LOGIN BUTTON */}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full rounded-lg bg-emerald-600 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Verifying..." : "Login"}
+              {loading
+                ? "Verifying..."
+                : "Login"}
             </button>
 
           </form>
 
-          {/* ================= DEMO LOGIN ================= */}
+          {/* DEMO LOGIN */}
 
           <div className="mt-6 rounded-lg bg-gray-50 p-4">
 
@@ -217,22 +391,22 @@ export default function Home() {
             </p>
 
             <p className="mt-2 text-center text-xs text-gray-500">
-              PHC Code:{" "}
-              <span className="font-semibold text-gray-700">
+              Username:
+              <span className="ml-1 font-semibold text-gray-700">
                 PHC-TVL-001
               </span>
             </p>
 
             <p className="text-center text-xs text-gray-500">
-              Password:{" "}
-              <span className="font-semibold text-gray-700">
+              Password:
+              <span className="ml-1 font-semibold text-gray-700">
                 admin123
               </span>
             </p>
 
           </div>
 
-          {/* ================= ROLES ================= */}
+          {/* ROLES */}
 
           <div className="mt-6 border-t border-gray-100 pt-5">
 
@@ -260,7 +434,7 @@ export default function Home() {
 
         </div>
 
-        {/* ================= FOOTER ================= */}
+        {/* FOOTER */}
 
         <p className="mt-6 text-center text-xs text-gray-500">
           © 2026 Marunthu Stock AI • PHC Pharmacy Intelligence

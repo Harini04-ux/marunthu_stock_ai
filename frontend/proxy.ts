@@ -13,7 +13,11 @@ const protectedRoutes = [
 ];
 
 export function proxy(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
+
+  // ==========================================
+  // CHECK WHETHER ROUTE IS PROTECTED
+  // ==========================================
 
   const isProtectedRoute = protectedRoutes.some(
     (route) =>
@@ -21,24 +25,45 @@ export function proxy(request: NextRequest) {
       pathname.startsWith(`${route}/`)
   );
 
+  // Public route
   if (!isProtectedRoute) {
     return NextResponse.next();
   }
 
-  const authenticated = request.cookies.get(
-    "marunthu_authenticated"
-  )?.value;
+  // ==========================================
+  // READ AUTH COOKIE
+  // ==========================================
 
-  if (authenticated !== "true") {
-    const loginUrl = new URL("/", request.url);
+  const authCookie = request.cookies.get(
+    "marunthu_authenticated"
+  );
+
+  const authenticated =
+    authCookie?.value === "true";
+
+  // ==========================================
+  // NOT AUTHENTICATED
+  // ==========================================
+
+  if (!authenticated) {
+    const loginUrl = new URL(
+      "/",
+      request.url
+    );
 
     loginUrl.searchParams.set(
       "error",
       "login_required"
     );
 
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(
+      loginUrl
+    );
   }
+
+  // ==========================================
+  // AUTHENTICATED
+  // ==========================================
 
   return NextResponse.next();
 }
