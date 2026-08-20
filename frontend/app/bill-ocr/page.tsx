@@ -25,7 +25,7 @@ export default function BillOCRPage() {
   const [error, setError] = useState("");
 
   const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://10.125.207.102:8000";
+    process.env.NEXT_PUBLIC_API_URL || " http://10.125.207.102:8001";
 
   const handleUpload = async () => {
     if (!file) {

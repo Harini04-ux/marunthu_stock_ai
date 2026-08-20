@@ -25,7 +25,7 @@ type MedicineAlert = Medicine & {
   priority: Priority;
 };
 
-const API_URL = "http://10.125.207.102:8000";
+const API_URL = " http://10.125.207.102:8001";
 
 export default function AlertsPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);

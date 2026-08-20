@@ -15,7 +15,7 @@ import {
   Cell,
 } from "recharts";
 
-const API_URL = "http://10.125.207.102:8000";
+const API_URL = " http://10.125.207.102:8001";
 
 type Dashboard = {
   total_phcs: number;

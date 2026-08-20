@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-const API_URL = "http://10.125.207.102:8000";
+const API_URL = "http://10.125.207.102:8001";
 
 export default function VoicePage() {
   const [file, setFile] = useState<File | null>(null);

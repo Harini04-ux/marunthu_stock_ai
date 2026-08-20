@@ -52,7 +52,7 @@ export default function Dashboard() {
 
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://10.125.207.102:8001";
+    " http://10.125.207.102:8001";
 
   // =========================================================
   // LOAD MEDICINES
