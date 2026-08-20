@@ -4,6 +4,35 @@ from datetime import date
 
 
 # ============================================================
+# PHC TABLE
+# ============================================================
+
+class PHC(Base):
+    __tablename__ = "phcs"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    phc_name = Column(
+        String,
+        nullable=False
+    )
+
+    location = Column(
+        String,
+        nullable=True
+    )
+
+    status = Column(
+        String,
+        default="Active"
+    )
+
+
+# ============================================================
 # MEDICINE STOCK TABLE
 # ============================================================
 
@@ -39,6 +68,14 @@ class Medicine(Base):
     reorder_level = Column(
         Integer,
         default=10
+    )
+
+    # PHC ID
+    # Identifies which PHC owns this medicine
+    phc_id = Column(
+        Integer,
+        nullable=True,
+        index=True
     )
 
 
@@ -96,6 +133,14 @@ class Indent(Base):
     medicine_id = Column(
         Integer,
         nullable=False
+    )
+
+    # PHC ID
+    # Identifies which PHC requested the indent
+    phc_id = Column(
+        Integer,
+        nullable=True,
+        index=True
     )
 
     # Quantity requested by PHC
@@ -172,10 +217,6 @@ class User(Base):
     )
 
     # Hashed password
-    #
-    # IMPORTANT:
-    # We store the hashed password,
-    # NOT the original password.
     password_hash = Column(
         String,
         nullable=False
@@ -185,6 +226,7 @@ class User(Base):
     #
     # Examples:
     # pharmacist
+    # dho
     # admin
     #
     role = Column(
@@ -193,10 +235,15 @@ class User(Base):
     )
 
     # Account status
-    #
-    # True  = active
-    # False = inactive
     is_active = Column(
         Boolean,
         default=True
+    )
+
+    # PHC ID
+    # For users belonging to a particular PHC
+    phc_id = Column(
+        Integer,
+        nullable=True,
+        index=True
     )

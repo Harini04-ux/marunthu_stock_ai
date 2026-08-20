@@ -10,7 +10,6 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import tempfile
 import os
-import re
 import joblib
 import speech_recognition as sr
 
@@ -30,37 +29,25 @@ app = FastAPI(
 
 # ============================================================
 # CORS
-# FRONTEND AND BACKEND ARE ON DIFFERENT LAPTOPS
 # ============================================================
 
 app.add_middleware(
     CORSMiddleware,
-
-    # Allow frontend laptop to connect
     allow_origins=["*"],
-
     allow_credentials=False,
-
     allow_methods=["*"],
-
     allow_headers=["*"],
 )
 
 
 # ============================================================
-# AUTHENTICATION CONFIGURATION
+# AUTHENTICATION
 # ============================================================
 
 SECRET_KEY = "marunthu-stock-ai-secret-key-change-this"
-
 ALGORITHM = "HS256"
-
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-
-# ============================================================
-# PASSWORD HASHING
-# ============================================================
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
@@ -68,17 +55,13 @@ pwd_context = CryptContext(
 )
 
 
-# ============================================================
-# OAUTH2
-# ============================================================
-
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="login"
 )
 
 
 # ============================================================
-# LOAD MACHINE LEARNING MODEL
+# LOAD ML MODEL
 # ============================================================
 
 model = joblib.load(
@@ -87,7 +70,7 @@ model = joblib.load(
 
 
 # ============================================================
-# CREATE DATABASE TABLES
+# CREATE TABLES
 # ============================================================
 
 Base.metadata.create_all(
@@ -96,7 +79,7 @@ Base.metadata.create_all(
 
 
 # ============================================================
-# DATABASE CONNECTION
+# DATABASE
 # ============================================================
 
 def get_db():
@@ -111,69 +94,45 @@ def get_db():
 
 
 # ============================================================
-# MEDICINE SCHEMA
+# SCHEMAS
 # ============================================================
 
 class MedicineCreate(BaseModel):
 
     medicine_name: str
-
     batch_number: str
-
     quantity: int
-
     expiry_date: date
-
     reorder_level: int = 10
+    phc_name: str = "Unknown PHC"
 
-
-# ============================================================
-# CONSUMPTION SCHEMA
-# ============================================================
 
 class ConsumptionCreate(BaseModel):
 
     medicine_id: int
-
     quantity_used: int
 
-
-# ============================================================
-# INDENT SCHEMA
-# ============================================================
 
 class IndentCreate(BaseModel):
 
     medicine_id: int
-
     requested_quantity: int
-
     current_stock: int
-
     predicted_quantity: int
-
     priority: str = "Medium"
-
     reason: str = ""
 
-
-# ============================================================
-# AUTHENTICATION SCHEMAS
-# ============================================================
 
 class RegisterRequest(BaseModel):
 
     username: str
-
     password: str
-
     role: str = "pharmacist"
 
 
 class LoginRequest(BaseModel):
 
     username: str
-
     password: str
 
 
@@ -198,7 +157,7 @@ def verify_password(
 
 
 # ============================================================
-# JWT TOKEN
+# JWT
 # ============================================================
 
 def create_access_token(
@@ -222,13 +181,11 @@ def create_access_token(
         "exp": expire
     })
 
-    encoded_jwt = jwt.encode(
+    return jwt.encode(
         to_encode,
         SECRET_KEY,
         algorithm=ALGORITHM
     )
-
-    return encoded_jwt
 
 
 # ============================================================
@@ -239,12 +196,14 @@ def create_access_token(
 def home():
 
     return {
-        "message": "Marunthu Stock AI Backend is Running"
+        "success": True,
+        "message": "Marunthu Stock AI Backend is Running",
+        "version": "1.0.0"
     }
 
 
 # ============================================================
-# USER REGISTRATION
+# REGISTER
 # ============================================================
 
 @app.post("/register")
@@ -278,9 +237,7 @@ def register_user(
     )
 
     db.add(new_user)
-
     db.commit()
-
     db.refresh(new_user)
 
     return {
@@ -302,7 +259,7 @@ def register_user(
 
 
 # ============================================================
-# USER LOGIN
+# LOGIN
 # ============================================================
 
 @app.post("/login")
@@ -321,16 +278,14 @@ def login_user(
 
         return {
             "success": False,
-            "message":
-                "Invalid username or password"
+            "message": "Invalid username or password"
         }
 
     if not user.is_active:
 
         return {
             "success": False,
-            "message":
-                "User account is inactive"
+            "message": "User account is inactive"
         }
 
     if not verify_password(
@@ -340,13 +295,8 @@ def login_user(
 
         return {
             "success": False,
-            "message":
-                "Invalid username or password"
+            "message": "Invalid username or password"
         }
-
-    access_token_expires = timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
 
     access_token = create_access_token(
 
@@ -355,8 +305,9 @@ def login_user(
             "role": user.role
         },
 
-        expires_delta=
-            access_token_expires
+        expires_delta=timedelta(
+            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     )
 
     return {
@@ -405,29 +356,23 @@ def get_current_user(
         payload = jwt.decode(
             token,
             SECRET_KEY,
-            algorithms=[
-                ALGORITHM
-            ]
+            algorithms=[ALGORITHM]
         )
 
-        username = payload.get(
-            "sub"
-        )
+        username = payload.get("sub")
 
         if username is None:
 
             return {
                 "success": False,
-                "message":
-                    "Invalid token"
+                "message": "Invalid token"
             }
 
     except JWTError:
 
         return {
             "success": False,
-            "message":
-                "Invalid or expired token"
+            "message": "Invalid or expired token"
         }
 
     user = db.query(
@@ -440,8 +385,7 @@ def get_current_user(
 
         return {
             "success": False,
-            "message":
-                "User not found"
+            "message": "User not found"
         }
 
     return {
@@ -479,33 +423,26 @@ def add_medicine(
 
     new_medicine = Medicine(
 
-        medicine_name=
-            medicine.medicine_name,
+        medicine_name=medicine.medicine_name,
 
-        batch_number=
-            medicine.batch_number,
+        batch_number=medicine.batch_number,
 
-        quantity=
-            medicine.quantity,
+        quantity=medicine.quantity,
 
-        expiry_date=
-            medicine.expiry_date,
+        expiry_date=medicine.expiry_date,
 
-        reorder_level=
-            medicine.reorder_level
+        reorder_level=medicine.reorder_level,
+
+        phc_name=medicine.phc_name
     )
 
-    db.add(
-        new_medicine
-    )
-
+    db.add(new_medicine)
     db.commit()
-
-    db.refresh(
-        new_medicine
-    )
+    db.refresh(new_medicine)
 
     return {
+
+        "success": True,
 
         "message":
             "Medicine added successfully",
@@ -517,7 +454,6 @@ def add_medicine(
 
 # ============================================================
 # SEARCH MEDICINE
-# IMPORTANT: KEEP THIS BEFORE /medicines/{medicine_id}
 # ============================================================
 
 @app.get("/medicines/search")
@@ -551,11 +487,9 @@ def get_medicines(
     db: Session = Depends(get_db)
 ):
 
-    medicines = db.query(
+    return db.query(
         Medicine
     ).all()
-
-    return medicines
 
 
 # ============================================================
@@ -568,7 +502,7 @@ def get_low_stock(
     db: Session = Depends(get_db)
 ):
 
-    medicines = db.query(
+    return db.query(
         Medicine
     ).filter(
 
@@ -576,8 +510,6 @@ def get_low_stock(
         <= Medicine.reorder_level
 
     ).all()
-
-    return medicines
 
 
 # ============================================================
@@ -597,7 +529,7 @@ def get_expiring_medicines(
         timedelta(days=30)
     )
 
-    medicines = db.query(
+    return db.query(
         Medicine
     ).filter(
 
@@ -608,11 +540,9 @@ def get_expiring_medicines(
 
     ).all()
 
-    return medicines
-
 
 # ============================================================
-# DASHBOARD
+# PHARMACIST DASHBOARD
 # ============================================================
 
 @app.get("/dashboard")
@@ -621,28 +551,22 @@ def get_dashboard(
     db: Session = Depends(get_db)
 ):
 
-    total_medicines = db.query(
-        Medicine
-    ).count()
-
     medicines = db.query(
         Medicine
     ).all()
 
+    total_medicines = len(medicines)
+
     total_stock = sum(
-
         medicine.quantity
-
         for medicine in medicines
     )
 
     low_stock = db.query(
         Medicine
     ).filter(
-
         Medicine.quantity
         <= Medicine.reorder_level
-
     ).count()
 
     today = date.today()
@@ -663,6 +587,12 @@ def get_dashboard(
 
     ).count()
 
+    pending_indents = db.query(
+        Indent
+    ).filter(
+        Indent.status == "Pending"
+    ).count()
+
     return {
 
         "total_medicines":
@@ -675,7 +605,363 @@ def get_dashboard(
             low_stock,
 
         "expiring_soon":
-            expiring_soon
+            expiring_soon,
+
+        "pending_indents":
+            pending_indents
+    }
+
+
+# ============================================================
+# DHO DASHBOARD
+# ============================================================
+
+@app.get("/dho/dashboard")
+def get_dho_dashboard(
+
+    db: Session = Depends(get_db)
+):
+
+    medicines = db.query(
+        Medicine
+    ).all()
+
+    today = date.today()
+
+    next_30_days = (
+        today +
+        timedelta(days=30)
+    )
+
+    total_phcs = len(
+        set(
+            getattr(
+                medicine,
+                "phc_name",
+                "Unknown PHC"
+            )
+            for medicine in medicines
+        )
+    )
+
+    total_medicines = len(
+        medicines
+    )
+
+    total_stock = sum(
+        medicine.quantity
+        for medicine in medicines
+    )
+
+    low_stock_medicines = [
+
+        medicine
+
+        for medicine in medicines
+
+        if medicine.quantity
+        <= medicine.reorder_level
+    ]
+
+    expiring_medicines = [
+
+        medicine
+
+        for medicine in medicines
+
+        if (
+            medicine.expiry_date >= today
+            and
+            medicine.expiry_date <= next_30_days
+        )
+    ]
+
+    pending_indents = db.query(
+        Indent
+    ).filter(
+        Indent.status == "Pending"
+    ).all()
+
+    # --------------------------------------------------------
+    # PHC-WISE SUMMARY
+    # --------------------------------------------------------
+
+    phc_data = {}
+
+    for medicine in medicines:
+
+        phc_name = getattr(
+            medicine,
+            "phc_name",
+            "Unknown PHC"
+        )
+
+        if phc_name not in phc_data:
+
+            phc_data[phc_name] = {
+
+                "phc_name":
+                    phc_name,
+
+                "total_medicines":
+                    0,
+
+                "total_stock":
+                    0,
+
+                "low_stock":
+                    0,
+
+                "expiring_soon":
+                    0,
+
+                "pending_indents":
+                    0,
+
+                "status":
+                    "Healthy"
+            }
+
+        phc_data[
+            phc_name
+        ][
+            "total_medicines"
+        ] += 1
+
+        phc_data[
+            phc_name
+        ][
+            "total_stock"
+        ] += medicine.quantity
+
+        if medicine.quantity <= medicine.reorder_level:
+
+            phc_data[
+                phc_name
+            ][
+                "low_stock"
+            ] += 1
+
+        if (
+            medicine.expiry_date >= today
+            and
+            medicine.expiry_date <= next_30_days
+        ):
+
+            phc_data[
+                phc_name
+            ][
+                "expiring_soon"
+            ] += 1
+
+    # --------------------------------------------------------
+    # PENDING INDENTS PHC-WISE
+    # --------------------------------------------------------
+
+    for indent in pending_indents:
+
+        medicine = db.query(
+            Medicine
+        ).filter(
+            Medicine.id == indent.medicine_id
+        ).first()
+
+        if medicine:
+
+            phc_name = getattr(
+                medicine,
+                "phc_name",
+                "Unknown PHC"
+            )
+
+            if phc_name not in phc_data:
+
+                phc_data[phc_name] = {
+
+                    "phc_name":
+                        phc_name,
+
+                    "total_medicines":
+                        0,
+
+                    "total_stock":
+                        0,
+
+                    "low_stock":
+                        0,
+
+                    "expiring_soon":
+                        0,
+
+                    "pending_indents":
+                        0,
+
+                    "status":
+                        "Healthy"
+                }
+
+            phc_data[
+                phc_name
+            ][
+                "pending_indents"
+            ] += 1
+
+    # --------------------------------------------------------
+    # PHC STATUS
+    # --------------------------------------------------------
+
+    for phc_name, data in phc_data.items():
+
+        if data["low_stock"] > 0:
+
+            data["status"] = "Critical"
+
+        elif data["expiring_soon"] > 0:
+
+            data["status"] = "Warning"
+
+        elif data["pending_indents"] > 0:
+
+            data["status"] = "Pending"
+
+        else:
+
+            data["status"] = "Healthy"
+
+    return {
+
+        "success": True,
+
+        "dashboard_date":
+            str(today),
+
+        "summary": {
+
+            "total_phcs":
+                total_phcs,
+
+            "total_medicines":
+                total_medicines,
+
+            "total_stock":
+                total_stock,
+
+            "low_stock":
+                len(low_stock_medicines),
+
+            "expiring_soon":
+                len(expiring_medicines),
+
+            "pending_indents":
+                len(pending_indents)
+        },
+
+        "phc_wise_data":
+            list(
+                phc_data.values()
+            ),
+
+        "low_stock_medicines": [
+
+            {
+
+                "id":
+                    medicine.id,
+
+                "phc_name":
+                    getattr(
+                        medicine,
+                        "phc_name",
+                        "Unknown PHC"
+                    ),
+
+                "medicine_name":
+                    medicine.medicine_name,
+
+                "batch_number":
+                    medicine.batch_number,
+
+                "quantity":
+                    medicine.quantity,
+
+                "reorder_level":
+                    medicine.reorder_level
+            }
+
+            for medicine in low_stock_medicines
+        ],
+
+        "expiring_medicines": [
+
+            {
+
+                "id":
+                    medicine.id,
+
+                "phc_name":
+                    getattr(
+                        medicine,
+                        "phc_name",
+                        "Unknown PHC"
+                    ),
+
+                "medicine_name":
+                    medicine.medicine_name,
+
+                "batch_number":
+                    medicine.batch_number,
+
+                "quantity":
+                    medicine.quantity,
+
+                "expiry_date":
+                    str(
+                        medicine.expiry_date
+                    )
+            }
+
+            for medicine in expiring_medicines
+        ],
+
+        "pending_indents": [
+
+            {
+
+                "id":
+                    indent.id,
+
+                "indent_number":
+                    indent.indent_number,
+
+                "medicine_id":
+                    indent.medicine_id,
+
+                "requested_quantity":
+                    indent.requested_quantity,
+
+                "current_stock":
+                    indent.current_stock,
+
+                "predicted_quantity":
+                    indent.predicted_quantity,
+
+                "priority":
+                    indent.priority,
+
+                "reason":
+                    indent.reason,
+
+                "status":
+                    indent.status,
+
+                "requested_date":
+                    str(
+                        indent.requested_date
+                    )
+            }
+
+            for indent in pending_indents
+        ]
     }
 
 
@@ -696,16 +982,14 @@ def update_medicine(
     existing_medicine = db.query(
         Medicine
     ).filter(
-
         Medicine.id == medicine_id
-
     ).first()
 
     if not existing_medicine:
 
         return {
-            "message":
-                "Medicine not found"
+            "success": False,
+            "message": "Medicine not found"
         }
 
     existing_medicine.medicine_name = (
@@ -728,13 +1012,16 @@ def update_medicine(
         medicine.reorder_level
     )
 
-    db.commit()
-
-    db.refresh(
-        existing_medicine
+    existing_medicine.phc_name = (
+        medicine.phc_name
     )
 
+    db.commit()
+    db.refresh(existing_medicine)
+
     return {
+
+        "success": True,
 
         "message":
             "Medicine updated successfully",
@@ -759,25 +1046,22 @@ def delete_medicine(
     medicine = db.query(
         Medicine
     ).filter(
-
         Medicine.id == medicine_id
-
     ).first()
 
     if not medicine:
 
         return {
-            "message":
-                "Medicine not found"
+            "success": False,
+            "message": "Medicine not found"
         }
 
-    db.delete(
-        medicine
-    )
-
+    db.delete(medicine)
     db.commit()
 
     return {
+
+        "success": True,
 
         "message":
             "Medicine deleted successfully",
@@ -804,41 +1088,38 @@ def consume_medicine(
     medicine = db.query(
         Medicine
     ).filter(
-
         Medicine.id == medicine_id
-
     ).first()
 
     if not medicine:
 
         return {
-            "message":
-                "Medicine not found"
+            "success": False,
+            "message": "Medicine not found"
         }
 
     if quantity_used <= 0:
 
         return {
-            "message":
-                "Quantity must be greater than 0"
+            "success": False,
+            "message": "Quantity must be greater than 0"
         }
 
     if medicine.quantity < quantity_used:
 
         return {
-            "message":
-                "Insufficient stock"
+            "success": False,
+            "message": "Insufficient stock"
         }
 
     medicine.quantity -= quantity_used
 
     db.commit()
-
-    db.refresh(
-        medicine
-    )
+    db.refresh(medicine)
 
     return {
+
+        "success": True,
 
         "message":
             "Stock updated successfully",
@@ -866,57 +1147,49 @@ def add_consumption(
     medicine = db.query(
         Medicine
     ).filter(
-
-        Medicine.id ==
-        data.medicine_id
-
+        Medicine.id == data.medicine_id
     ).first()
 
     if not medicine:
 
         return {
-            "message":
-                "Medicine not found"
+            "success": False,
+            "message": "Medicine not found"
         }
 
     if data.quantity_used <= 0:
 
         return {
-            "message":
-                "Quantity must be greater than 0"
+            "success": False,
+            "message": "Quantity must be greater than 0"
         }
 
     if medicine.quantity < data.quantity_used:
 
         return {
-            "message":
-                "Insufficient stock"
+            "success": False,
+            "message": "Insufficient stock"
         }
 
-    medicine.quantity -= (
-        data.quantity_used
-    )
+    medicine.quantity -= data.quantity_used
 
     consumption = Consumption(
 
-        medicine_id=
-            data.medicine_id,
+        medicine_id=data.medicine_id,
 
-        quantity_used=
-            data.quantity_used
+        quantity_used=data.quantity_used,
+
+        consumed_date=date.today()
     )
 
-    db.add(
-        consumption
-    )
+    db.add(consumption)
 
     db.commit()
-
-    db.refresh(
-        consumption
-    )
+    db.refresh(consumption)
 
     return {
+
+        "success": True,
 
         "message":
             "Consumption recorded successfully",
@@ -947,26 +1220,20 @@ def predict_stock(
     medicine = db.query(
         Medicine
     ).filter(
-
-        Medicine.id ==
-        medicine_id
-
+        Medicine.id == medicine_id
     ).first()
 
     if not medicine:
 
         return {
-            "message":
-                "Medicine not found"
+            "success": False,
+            "message": "Medicine not found"
         }
 
     consumption_records = db.query(
         Consumption
     ).filter(
-
-        Consumption.medicine_id ==
-        medicine_id
-
+        Consumption.medicine_id == medicine_id
     ).all()
 
     if not consumption_records:
@@ -984,8 +1251,7 @@ def predict_stock(
 
         record.quantity_used
 
-        for record in
-        consumption_records
+        for record in consumption_records
     )
 
     days = len(
@@ -997,13 +1263,10 @@ def predict_stock(
     )
 
     predicted_30_day_demand = round(
-
         average_daily_usage * 30
     )
 
-    current_stock = (
-        medicine.quantity
-    )
+    current_stock = medicine.quantity
 
     if current_stock < predicted_30_day_demand:
 
@@ -1065,6 +1328,13 @@ def get_notifications(
         timedelta(days=30)
     )
 
+    low_stock = db.query(
+        Medicine
+    ).filter(
+        Medicine.quantity
+        <= Medicine.reorder_level
+    ).all()
+
     expiring = db.query(
         Medicine
     ).filter(
@@ -1076,41 +1346,7 @@ def get_notifications(
 
     ).all()
 
-    low_stock = db.query(
-        Medicine
-    ).filter(
-
-        Medicine.quantity
-        <= Medicine.reorder_level
-
-    ).all()
-
     notifications = []
-
-
-    # EXPIRY NOTIFICATIONS
-
-    for medicine in expiring:
-
-        notifications.append({
-
-            "type":
-                "EXPIRY",
-
-            "medicine_name":
-                medicine.medicine_name,
-
-            "message":
-                f"{medicine.medicine_name} is expiring soon",
-
-            "expiry_date":
-                str(
-                    medicine.expiry_date
-                )
-        })
-
-
-    # LOW STOCK NOTIFICATIONS
 
     for medicine in low_stock:
 
@@ -1119,17 +1355,79 @@ def get_notifications(
             "type":
                 "LOW_STOCK",
 
+            "medicine_id":
+                medicine.id,
+
             "medicine_name":
                 medicine.medicine_name,
+
+            "batch_number":
+                medicine.batch_number,
+
+            "phc_name":
+                getattr(
+                    medicine,
+                    "phc_name",
+                    "Unknown PHC"
+                ),
 
             "message":
                 f"{medicine.medicine_name} stock is low",
 
             "quantity":
-                medicine.quantity
+                medicine.quantity,
+
+            "reorder_level":
+                medicine.reorder_level,
+
+            "expiry_date":
+                str(
+                    medicine.expiry_date
+                )
+        })
+
+    for medicine in expiring:
+
+        notifications.append({
+
+            "type":
+                "EXPIRY",
+
+            "medicine_id":
+                medicine.id,
+
+            "medicine_name":
+                medicine.medicine_name,
+
+            "batch_number":
+                medicine.batch_number,
+
+            "phc_name":
+                getattr(
+                    medicine,
+                    "phc_name",
+                    "Unknown PHC"
+                ),
+
+            "message":
+                f"{medicine.medicine_name} is expiring soon",
+
+            "quantity":
+                medicine.quantity,
+
+            "reorder_level":
+                medicine.reorder_level,
+
+            "expiry_date":
+                str(
+                    medicine.expiry_date
+                )
         })
 
     return {
+
+        "success":
+            True,
 
         "total_notifications":
             len(notifications),
@@ -1172,20 +1470,11 @@ async def ocr_medicine(
             temp_path
         )
 
-        medicine_name = (
-            "Unknown Medicine"
-        )
-
+        medicine_name = "Unknown Medicine"
         batch_number = "UNKNOWN"
-
         quantity = 0
-
         expiry_date = None
-
         reorder_level = 10
-
-
-        # OCR TEXT → LINES
 
         lines = [
 
@@ -1195,9 +1484,6 @@ async def ocr_medicine(
 
             if line.strip()
         ]
-
-
-        # MEDICINE NAME
 
         for line in lines:
 
@@ -1211,9 +1497,6 @@ async def ocr_medicine(
                 )
 
                 break
-
-
-        # BATCH NUMBER
 
         for line in lines:
 
@@ -1232,9 +1515,6 @@ async def ocr_medicine(
 
                         break
 
-
-        # QUANTITY
-
         for line in lines:
 
             if "quantity" in line.lower():
@@ -1250,9 +1530,6 @@ async def ocr_medicine(
 
                     break
 
-
-        # EXPIRY DATE
-
         for line in lines:
 
             if "expiry" in line.lower():
@@ -1260,10 +1537,8 @@ async def ocr_medicine(
 
             try:
 
-                expiry_date = (
-                    date.fromisoformat(
-                        line
-                    )
+                expiry_date = date.fromisoformat(
+                    line
                 )
 
                 break
@@ -1272,43 +1547,30 @@ async def ocr_medicine(
 
                 pass
 
-
-        # DEFAULT EXPIRY
-
         if expiry_date is None:
 
             expiry_date = date.today()
 
-
-        # SAVE MEDICINE
-
         new_medicine = Medicine(
 
-            medicine_name=
-                medicine_name,
+            medicine_name=medicine_name,
 
-            batch_number=
-                batch_number,
+            batch_number=batch_number,
 
-            quantity=
-                quantity,
+            quantity=quantity,
 
-            expiry_date=
-                expiry_date,
+            expiry_date=expiry_date,
 
-            reorder_level=
-                reorder_level
+            reorder_level=reorder_level,
+
+            phc_name="Unknown PHC"
         )
 
-        db.add(
-            new_medicine
-        )
+        db.add(new_medicine)
 
         db.commit()
 
-        db.refresh(
-            new_medicine
-        )
+        db.refresh(new_medicine)
 
         return {
 
@@ -1338,7 +1600,14 @@ async def ocr_medicine(
                     ),
 
                 "reorder_level":
-                    new_medicine.reorder_level
+                    new_medicine.reorder_level,
+
+                "phc_name":
+                    getattr(
+                        new_medicine,
+                        "phc_name",
+                        "Unknown PHC"
+                    )
             },
 
             "extracted_text":
@@ -1347,13 +1616,9 @@ async def ocr_medicine(
 
     finally:
 
-        if os.path.exists(
-            temp_path
-        ):
+        if os.path.exists(temp_path):
 
-            os.remove(
-                temp_path
-            )
+            os.remove(temp_path)
 
 
 # ============================================================
@@ -1421,13 +1686,9 @@ async def voice_input(
 
     finally:
 
-        if os.path.exists(
-            temp_path
-        ):
+        if os.path.exists(temp_path):
 
-            os.remove(
-                temp_path
-            )
+            os.remove(temp_path)
 
 
 # ============================================================
@@ -1484,10 +1745,7 @@ def create_indent(
     medicine = db.query(
         Medicine
     ).filter(
-
-        Medicine.id ==
-        data.medicine_id
-
+        Medicine.id == data.medicine_id
     ).first()
 
     if not medicine:
@@ -1513,9 +1771,8 @@ def create_indent(
         }
 
     indent_count = (
-        db.query(
-            Indent
-        ).count() + 1
+        db.query(Indent).count()
+        + 1
     )
 
     indent_number = (
@@ -1527,43 +1784,30 @@ def create_indent(
 
     new_indent = Indent(
 
-        indent_number=
-            indent_number,
+        indent_number=indent_number,
 
-        medicine_id=
-            data.medicine_id,
+        medicine_id=data.medicine_id,
 
-        requested_quantity=
-            data.requested_quantity,
+        requested_quantity=data.requested_quantity,
 
-        current_stock=
-            data.current_stock,
+        current_stock=data.current_stock,
 
-        predicted_quantity=
-            data.predicted_quantity,
+        predicted_quantity=data.predicted_quantity,
 
-        priority=
-            data.priority,
+        priority=data.priority,
 
-        reason=
-            data.reason,
+        reason=data.reason,
 
-        status=
-            "Pending",
+        status="Pending",
 
-        requested_date=
-            date.today()
+        requested_date=date.today()
     )
 
-    db.add(
-        new_indent
-    )
+    db.add(new_indent)
 
     db.commit()
 
-    db.refresh(
-        new_indent
-    )
+    db.refresh(new_indent)
 
     return {
 
@@ -1634,10 +1878,7 @@ def get_indents(
         medicine = db.query(
             Medicine
         ).filter(
-
-            Medicine.id ==
-            indent.medicine_id
-
+            Medicine.id == indent.medicine_id
         ).first()
 
         result.append({
@@ -1656,6 +1897,17 @@ def get_indents(
                     medicine.medicine_name
                     if medicine
                     else "Unknown"
+                ),
+
+            "phc_name":
+                (
+                    getattr(
+                        medicine,
+                        "phc_name",
+                        "Unknown PHC"
+                    )
+                    if medicine
+                    else "Unknown PHC"
                 ),
 
             "requested_quantity":
@@ -1716,10 +1968,7 @@ def get_indent(
     indent = db.query(
         Indent
     ).filter(
-
-        Indent.id ==
-        indent_id
-
+        Indent.id == indent_id
     ).first()
 
     if not indent:
@@ -1736,10 +1985,7 @@ def get_indent(
     medicine = db.query(
         Medicine
     ).filter(
-
-        Medicine.id ==
-        indent.medicine_id
-
+        Medicine.id == indent.medicine_id
     ).first()
 
     return {
@@ -1758,6 +2004,17 @@ def get_indent(
                 medicine.medicine_name
                 if medicine
                 else "Unknown"
+            ),
+
+        "phc_name":
+            (
+                getattr(
+                    medicine,
+                    "phc_name",
+                    "Unknown PHC"
+                )
+                if medicine
+                else "Unknown PHC"
             ),
 
         "requested_quantity":
@@ -1809,10 +2066,7 @@ def approve_indent(
     indent = db.query(
         Indent
     ).filter(
-
-        Indent.id ==
-        indent_id
-
+        Indent.id == indent_id
     ).first()
 
     if not indent:
@@ -1839,15 +2093,11 @@ def approve_indent(
 
     indent.status = "Approved"
 
-    indent.approved_date = (
-        date.today()
-    )
+    indent.approved_date = date.today()
 
     db.commit()
 
-    db.refresh(
-        indent
-    )
+    db.refresh(indent)
 
     return {
 
@@ -1888,10 +2138,7 @@ def reject_indent(
     indent = db.query(
         Indent
     ).filter(
-
-        Indent.id ==
-        indent_id
-
+        Indent.id == indent_id
     ).first()
 
     if not indent:
@@ -1920,9 +2167,7 @@ def reject_indent(
 
     db.commit()
 
-    db.refresh(
-        indent
-    )
+    db.refresh(indent)
 
     return {
 
@@ -1941,351 +2186,4 @@ def reject_indent(
         "status":
             indent.status
     }
-@app.get("/notifications")
-def get_notifications(db: Session = Depends(get_db)):
 
-    today = date.today()
-    next_30_days = today + timedelta(days=30)
-
-    # Low stock medicines
-    low_stock = db.query(Medicine).filter(
-        Medicine.quantity <= Medicine.reorder_level
-    ).all()
-
-    # Expiring medicines
-    expiring = db.query(Medicine).filter(
-        Medicine.expiry_date >= today,
-        Medicine.expiry_date <= next_30_days
-    ).all()
-
-    notifications = []
-
-    # LOW STOCK ALERTS
-    for medicine in low_stock:
-
-        notifications.append({
-            "type": "LOW_STOCK",
-            "medicine_id": medicine.id,
-            "medicine_name": medicine.medicine_name,
-            "batch_number": medicine.batch_number,
-            "message": f"{medicine.medicine_name} stock is low",
-            "quantity": medicine.quantity,
-            "reorder_level": medicine.reorder_level,
-            "expiry_date": str(medicine.expiry_date)
-        })
-
-    # EXPIRY ALERTS
-    for medicine in expiring:
-
-        notifications.append({
-            "type": "EXPIRY",
-            "medicine_id": medicine.id,
-            "medicine_name": medicine.medicine_name,
-            "batch_number": medicine.batch_number,
-            "message": f"{medicine.medicine_name} is expiring soon",
-            "quantity": medicine.quantity,
-            "reorder_level": medicine.reorder_level,
-            "expiry_date": str(medicine.expiry_date)
-        })
-
-    return {
-        "success": True,
-        "total_notifications": len(notifications),
-        "notifications": notifications
-    }
-# ============================================================
-# DHO DASHBOARD
-# PHC-WISE STOCK, LOW STOCK, EXPIRY, PENDING INDENTS
-# ============================================================
-
-@app.get("/dho/dashboard")
-def get_dho_dashboard(
-    db: Session = Depends(get_db)
-):
-
-    today = date.today()
-    next_30_days = today + timedelta(days=30)
-
-    # --------------------------------------------------------
-    # GET ALL MEDICINES
-    # --------------------------------------------------------
-
-    medicines = db.query(Medicine).all()
-
-    # --------------------------------------------------------
-    # GET ALL INDENTS
-    # --------------------------------------------------------
-
-    indents = db.query(Indent).all()
-
-    # --------------------------------------------------------
-    # OVERALL COUNTS
-    # --------------------------------------------------------
-
-    total_medicines = len(medicines)
-
-    total_stock = sum(
-        medicine.quantity
-        for medicine in medicines
-    )
-
-    low_stock_medicines = [
-        medicine
-        for medicine in medicines
-        if medicine.quantity <= medicine.reorder_level
-    ]
-
-    expiring_medicines = [
-        medicine
-        for medicine in medicines
-        if (
-            medicine.expiry_date >= today
-            and medicine.expiry_date <= next_30_days
-        )
-    ]
-
-    pending_indents = [
-        indent
-        for indent in indents
-        if indent.status == "Pending"
-    ]
-
-    approved_indents = [
-        indent
-        for indent in indents
-        if indent.status == "Approved"
-    ]
-
-    rejected_indents = [
-        indent
-        for indent in indents
-        if indent.status == "Rejected"
-    ]
-
-    # --------------------------------------------------------
-    # PHC-WISE DATA
-    # --------------------------------------------------------
-
-    phc_data = {}
-
-    for medicine in medicines:
-
-        # If phc_code exists in your Medicine model
-        phc_code = getattr(
-            medicine,
-            "phc_code",
-            "PHC-UNKNOWN"
-        )
-
-        if phc_code not in phc_data:
-
-            phc_data[phc_code] = {
-                "phc_code": phc_code,
-                "total_medicines": 0,
-                "total_stock": 0,
-                "low_stock": 0,
-                "expiring_soon": 0,
-                "pending_indents": 0,
-                "status": "NORMAL"
-            }
-
-        phc_data[phc_code]["total_medicines"] += 1
-
-        phc_data[phc_code]["total_stock"] += (
-            medicine.quantity
-        )
-
-        # LOW STOCK
-
-        if medicine.quantity <= medicine.reorder_level:
-
-            phc_data[phc_code]["low_stock"] += 1
-
-        # EXPIRY
-
-        if (
-            medicine.expiry_date >= today
-            and medicine.expiry_date <= next_30_days
-        ):
-
-            phc_data[phc_code]["expiring_soon"] += 1
-
-    # --------------------------------------------------------
-    # PENDING INDENTS PHC-WISE
-    # --------------------------------------------------------
-
-    for indent in pending_indents:
-
-        medicine = db.query(
-            Medicine
-        ).filter(
-            Medicine.id == indent.medicine_id
-        ).first()
-
-        if medicine:
-
-            phc_code = getattr(
-                medicine,
-                "phc_code",
-                "PHC-UNKNOWN"
-            )
-
-            if phc_code not in phc_data:
-
-                phc_data[phc_code] = {
-                    "phc_code": phc_code,
-                    "total_medicines": 0,
-                    "total_stock": 0,
-                    "low_stock": 0,
-                    "expiring_soon": 0,
-                    "pending_indents": 0,
-                    "status": "NORMAL"
-                }
-
-            phc_data[phc_code]["pending_indents"] += 1
-
-    # --------------------------------------------------------
-    # DETERMINE PHC STATUS
-    # --------------------------------------------------------
-
-    for phc_code, data in phc_data.items():
-
-        if data["low_stock"] > 0:
-
-            data["status"] = "LOW_STOCK"
-
-        elif data["expiring_soon"] > 0:
-
-            data["status"] = "EXPIRY_ALERT"
-
-        elif data["pending_indents"] > 0:
-
-            data["status"] = "INDENT_PENDING"
-
-        else:
-
-            data["status"] = "NORMAL"
-
-    # --------------------------------------------------------
-    # RETURN DHO DASHBOARD
-    # --------------------------------------------------------
-
-    return {
-
-        "success": True,
-
-        "dashboard": {
-
-            "total_phcs": len(phc_data),
-
-            "total_medicines":
-                total_medicines,
-
-            "total_stock":
-                total_stock,
-
-            "low_stock":
-                len(low_stock_medicines),
-
-            "expiring_soon":
-                len(expiring_medicines),
-
-            "pending_indents":
-                len(pending_indents),
-
-            "approved_indents":
-                len(approved_indents),
-
-            "rejected_indents":
-                len(rejected_indents)
-        },
-
-        "phc_wise_data":
-            list(phc_data.values()),
-
-        "indent_status": {
-
-            "Pending":
-                len(pending_indents),
-
-            "Approved":
-                len(approved_indents),
-
-            "Rejected":
-                len(rejected_indents)
-        },
-
-        "low_stock_medicines": [
-
-            {
-                "id": medicine.id,
-                "medicine_name":
-                    medicine.medicine_name,
-                "batch_number":
-                    medicine.batch_number,
-                "quantity":
-                    medicine.quantity,
-                "reorder_level":
-                    medicine.reorder_level,
-                "expiry_date":
-                    str(medicine.expiry_date)
-            }
-
-            for medicine in low_stock_medicines
-        ],
-
-        "expiring_medicines": [
-
-            {
-                "id": medicine.id,
-                "medicine_name":
-                    medicine.medicine_name,
-                "batch_number":
-                    medicine.batch_number,
-                "quantity":
-                    medicine.quantity,
-                "expiry_date":
-                    str(medicine.expiry_date)
-            }
-
-            for medicine in expiring_medicines
-        ],
-
-        "pending_indent_details": [
-
-            {
-                "id":
-                    indent.id,
-
-                "indent_number":
-                    indent.indent_number,
-
-                "medicine_id":
-                    indent.medicine_id,
-
-                "requested_quantity":
-                    indent.requested_quantity,
-
-                "current_stock":
-                    indent.current_stock,
-
-                "predicted_quantity":
-                    indent.predicted_quantity,
-
-                "priority":
-                    indent.priority,
-
-                "reason":
-                    indent.reason,
-
-                "status":
-                    indent.status,
-
-                "requested_date":
-                    str(indent.requested_date)
-            }
-
-            for indent in pending_indents
-        ]
-    }
-    
