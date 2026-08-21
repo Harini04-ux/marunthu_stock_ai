@@ -1,17 +1,31 @@
-import easyocr
 import re
 import cv2
 import os
 import numpy as np
 
 # ============================================================
-# EASY OCR READER
+# EASY OCR - LAZY LOADING
 # ============================================================
 
-reader = easyocr.Reader(
-    ["en"],
-    gpu=False
-)
+reader = None
+
+
+def get_reader():
+    """
+    Load EasyOCR only when OCR is actually used.
+    This prevents EasyOCR from loading during backend startup.
+    """
+    global reader
+
+    if reader is None:
+        import easyocr
+
+        reader = easyocr.Reader(
+            ["en"],
+            gpu=False
+        )
+
+    return reader
 
 
 # ============================================================
@@ -38,7 +52,7 @@ def preprocess_variants(image_path):
 
     variants.append(("gray", gray))
 
-    # Resize - OCR works better on larger text
+    # Resize
     height, width = gray.shape
 
     scale = 2
@@ -62,7 +76,7 @@ def preprocess_variants(image_path):
 
     variants.append(("denoised", denoised))
 
-    # Contrast
+    # Contrast enhancement
     contrast = cv2.equalizeHist(
         denoised
     )
@@ -95,7 +109,7 @@ def preprocess_variants(image_path):
 
 
 # ============================================================
-# OCR
+# OCR TEXT EXTRACTION
 # ============================================================
 
 def extract_text(image_path):
@@ -104,6 +118,9 @@ def extract_text(image_path):
         raise FileNotFoundError(
             f"Image not found: {image_path}"
         )
+
+    # Create OCR reader only when this function is called
+    ocr_reader = get_reader()
 
     variants = preprocess_variants(
         image_path
@@ -115,7 +132,7 @@ def extract_text(image_path):
 
         try:
 
-            result = reader.readtext(
+            result = ocr_reader.readtext(
                 image,
                 detail=1,
                 paragraph=False,
@@ -141,7 +158,10 @@ def extract_text(image_path):
                 f"OCR error in {name}: {e}"
             )
 
-    # Remove duplicate lines
+    # ========================================================
+    # REMOVE DUPLICATE LINES
+    # ========================================================
+
     unique_lines = []
 
     seen = set()
