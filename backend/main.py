@@ -61,7 +61,12 @@ oauth2_scheme = OAuth2PasswordBearer(
 # LOAD ML MODEL
 # ============================================================
 
-model = joblib.load("medicine_stock_model.pkl")
+MODEL_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "medicine_stock_model.pkl"
+)
+
+model = joblib.load(MODEL_PATH)
 
 
 # ============================================================
