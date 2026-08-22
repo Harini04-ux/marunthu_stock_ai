@@ -503,7 +503,7 @@ export default function Page() {
 
                     <button
                       onClick={() => {
-                        alert(
+                        window.alert(
                           `${alert.medicine.name}\n\nCode: ${alert.medicine.code}\nBatch: ${alert.medicine.batch}\nQuantity: ${alert.medicine.quantity}\nMinimum: ${alert.medicine.minimum}\nExpiry: ${alert.medicine.expiry}`
                         );
                       }}
