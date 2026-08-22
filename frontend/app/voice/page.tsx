@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-const API_URL = "https://marunthu-stock-ai-backend.onrender.com";
+const API_URL = "/api";
 
 export default function VoicePage() {
   const [file, setFile] = useState<File | null>(null);
